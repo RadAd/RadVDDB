@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="clsfact.cpp" />
+    <ClCompile Include="deskband.cpp" />
+    <ClCompile Include="winerror.cpp" />
+    <ClCompile Include="RadVDDB.cpp" />
+    <ClCompile Include="VDNotification.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="clsfact.h" />
+    <ClInclude Include="deskband.h" />
+    <ClInclude Include="globals.h" />
+    <ClInclude Include="guid.h" />
+    <ClInclude Include="winerror.h" />
+    <ClInclude Include="Win10Desktops.h" />
+    <ClInclude Include="VDNotification.h" />
+    <ClInclude Include="GdiUtils.h" />
+    <ClInclude Include="ComUtils.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="RadVDDB.def" />
+  </ItemGroup>
+</Project>
