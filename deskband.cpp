@@ -30,13 +30,8 @@ CDeskBand::CDeskBand(CLSID pClassID)
     m_ObjRefCount = 1;
     g_DllRefCount++;
 
-    CComPtr<IServiceProvider> pServiceProvider;
-    pServiceProvider.CoCreateInstance(CLSID_ImmersiveShell, NULL, CLSCTX_LOCAL_SERVER);
-    if (FAILED(pServiceProvider->QueryService(CLSID_VirtualDesktopManagerInternal, IID_PPV_ARGS(&m_pDesktopManagerInternal))))
-        MessageBox(m_hWnd, L"Error obtaining CLSID_VirtualDesktopManagerInternal", L"Error", MB_ICONERROR | MB_OK);
-    if (FAILED(pServiceProvider->QueryService(CLSID_IVirtualNotificationService, IID_PPV_ARGS(&m_pDesktopNotificationService))))
-        MessageBox(m_hWnd, L"Error obtaining CLSID_IVirtualNotificationService", L"Error", MB_ICONERROR | MB_OK);
     m_idVirtualDesktopNotification = 0;
+    Connect();
 }
 
 CDeskBand::~CDeskBand()
@@ -158,8 +153,9 @@ STDMETHODIMP CDeskBand::SetSite(IUnknown* punkSite)
         UnregisterNotify();
 
         m_pNotify = new VirtualDesktopNotification(m_hWnd);
-        if (FAILED(m_pDesktopNotificationService->Register(m_pNotify, &m_idVirtualDesktopNotification)))
-            return E_FAIL;
+        if (!m_pDesktopNotificationService || FAILED(m_pDesktopNotificationService->Register(m_pNotify, &m_idVirtualDesktopNotification)))
+            OutputDebugString(L"RADVDDB: Error regsiter DesktopNotificationService\n");
+            //return E_FAIL;
 
         //Get and keep the IInputObjectSite pointer.
         if (SUCCEEDED(punkSite->QueryInterface(IID_IInputObjectSite, (LPVOID*) &m_pSite)))
@@ -311,7 +307,7 @@ STDMETHODIMP CDeskBand::InvokeCommand(LPCMINVOKECOMMANDINFO lpcmi)
     case IDM_CREATE:
     {
         CComPtr<IVirtualDesktop> pNewDesktop;
-        if (FAILED(m_pDesktopManagerInternal->CreateDesktopW(&pNewDesktop)))
+        if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->CreateDesktopW(&pNewDesktop)))
             MessageBox(m_hWnd, L"Error creating virtual desktop", L"Error", MB_ICONERROR | MB_OK);
     }
     return NOERROR;
@@ -422,14 +418,14 @@ LRESULT CDeskBand::OnPaint(void)
     GDIPtr<HBRUSH> hBorderSelectedBrush(GetSysColorBrush(COLOR_WINDOW));
 
     CComPtr<IVirtualDesktop> pCurrentDesktop;
-    if (FAILED(m_pDesktopManagerInternal->GetCurrentDesktop(&pCurrentDesktop)))
+    if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetCurrentDesktop(&pCurrentDesktop)))
         ;
 
     LONG w;
     RECT dtrc = GetFirstDesktopRect(w);
 
     CComPtr<IObjectArray> pObjectArray;
-    if (SUCCEEDED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
+    if (m_pDesktopManagerInternal && SUCCEEDED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
     {
         for (CComPtr<IVirtualDesktop> pDesktop : ObjectArrayRange<IVirtualDesktop>(pObjectArray))
         {
@@ -466,7 +462,7 @@ LRESULT CDeskBand::OnLButtonUp(UINT uModKeys, POINT pt)
 
     if (pDesktop && pCaptureDesktop == pDesktop)
     {
-        if (FAILED(m_pDesktopManagerInternal->SwitchDesktop(pDesktop)))
+        if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->SwitchDesktop(pDesktop)))
             MessageBox(m_hWnd, L"Error switching desktops", L"Error", MB_ICONERROR | MB_OK);;
     }
 
@@ -546,12 +542,40 @@ BOOL CDeskBand::RegisterAndCreateWindow(void)
     return (NULL != m_hWnd);
 }
 
+void CDeskBand::Connect()
+{
+    if (!m_pDesktopManagerInternal || !m_pDesktopNotificationService)
+    {
+        CComPtr<IServiceProvider> pServiceProvider;
+        pServiceProvider.CoCreateInstance(CLSID_ImmersiveShell, NULL, CLSCTX_LOCAL_SERVER);
+        if (pServiceProvider)
+        {
+            if (!m_pDesktopManagerInternal)
+            {
+                if (FAILED(pServiceProvider->QueryService(CLSID_VirtualDesktopManagerInternal, IID_PPV_ARGS(&m_pDesktopManagerInternal))))
+                    OutputDebugString(L"RADVDDB: Error obtaining CLSID_VirtualDesktopManagerInternal\n");
+            }
+            if (!m_pDesktopNotificationService)
+            {
+                if (FAILED(pServiceProvider->QueryService(CLSID_IVirtualNotificationService, IID_PPV_ARGS(&m_pDesktopNotificationService))))
+                    OutputDebugString(L"RADVDDB: Error obtaining CLSID_IVirtualNotificationService\n");
+            }
+        }
+    }
+
+    if (m_pNotify && m_idVirtualDesktopNotification == 0)
+    {
+        if (!m_pDesktopNotificationService || FAILED(m_pDesktopNotificationService->Register(m_pNotify, &m_idVirtualDesktopNotification)))
+            OutputDebugString(L"RADVDDB: Error regsiter DesktopNotificationService\n");
+    }
+}
+
 void CDeskBand::UnregisterNotify(void)
 {
     if (m_idVirtualDesktopNotification != 0)
     {
-        if (FAILED(m_pDesktopNotificationService->Unregister(m_idVirtualDesktopNotification)))
-            MessageBox(m_hWnd, L"Error unregister notification", L"Error", MB_ICONERROR | MB_OK);
+        if (!m_pDesktopNotificationService || FAILED(m_pDesktopNotificationService->Unregister(m_idVirtualDesktopNotification)))
+            OutputDebugString(L"RADVDDB: Error unregister notification\n");
         m_idVirtualDesktopNotification = 0;
     }
 }
@@ -559,11 +583,11 @@ void CDeskBand::UnregisterNotify(void)
 RECT CDeskBand::GetFirstDesktopRect(LONG& w)
 {
     CComPtr<IObjectArray> pObjectArray;
-    if (FAILED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
+    if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
         ;
 
-    UINT count;
-    if (FAILED(pObjectArray->GetCount(&count)))
+    UINT count = 1;
+    if (!pObjectArray || FAILED(pObjectArray->GetCount(&count)))
         ;
 
     RECT rc;
@@ -594,7 +618,7 @@ CComPtr<IVirtualDesktop> CDeskBand::GetDesktop(POINT pt)
     RECT dtrc = GetFirstDesktopRect(w);
 
     CComPtr<IObjectArray> pObjectArray;
-    if (FAILED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
+    if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
         return nullptr;
     for (CComPtr<IVirtualDesktop> pDesktop : ObjectArrayRange<IVirtualDesktop>(pObjectArray))
     {

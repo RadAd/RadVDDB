@@ -97,6 +97,7 @@ private:
     LRESULT OnLButtonUp(UINT uModKeys, POINT pt);
     BOOL RegisterAndCreateWindow(void);
 
+    void Connect();
     void UnregisterNotify(void);
     RECT GetFirstDesktopRect(LONG& w);
     CComPtr<IVirtualDesktop> GetDesktop(POINT pt);
