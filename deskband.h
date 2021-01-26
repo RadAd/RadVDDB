@@ -10,6 +10,7 @@
 #define DB_CLASS_NAME (TEXT("RadVDDBClass"))
 
 interface IVirtualDesktopManagerInternal;
+interface IApplicationViewCollection;
 interface IVirtualDesktopNotificationService;
 interface IVirtualDesktopNotification;
 interface IVirtualDesktop;
@@ -81,6 +82,7 @@ private:
     CComPtr<IInputObjectSite> m_pSite;
 
     CComPtr<IVirtualDesktopManagerInternal> m_pDesktopManagerInternal;
+    CComPtr<IApplicationViewCollection> m_pApplicationViewCollection;
     CComPtr<IVirtualDesktopNotificationService> m_pDesktopNotificationService;
     DWORD m_idVirtualDesktopNotification = 0;
     CComPtr<IVirtualDesktopNotification> m_pNotify = nullptr;
@@ -99,7 +101,7 @@ private:
 
     void Connect();
     void UnregisterNotify(void);
-    RECT GetFirstDesktopRect(LONG& w);
+    RECT GetFirstDesktopRect(const SIZE dtsz, LONG& w);
     CComPtr<IVirtualDesktop> GetDesktop(POINT pt);
 };
 

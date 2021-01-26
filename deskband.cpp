@@ -31,7 +31,6 @@ CDeskBand::CDeskBand(CLSID pClassID)
     g_DllRefCount++;
 
     m_idVirtualDesktopNotification = 0;
-    Connect();
 }
 
 CDeskBand::~CDeskBand()
@@ -93,6 +92,10 @@ STDMETHODIMP_(DWORD) CDeskBand::Release()
 // IOleWindow Implementation
 STDMETHODIMP CDeskBand::GetWindow(HWND* phWnd)
 {
+    // Connect doesn't work when explorer starts up
+    // so we try again here
+    Connect();
+
     *phWnd = m_hWnd;
 
     return S_OK;
@@ -290,6 +293,7 @@ STDMETHODIMP CDeskBand::GetSizeMax(ULARGE_INTEGER* pul)
 
 STDMETHODIMP CDeskBand::QueryContextMenu(HMENU hMenu, UINT indexMenu, UINT idCmdFirst, UINT idCmdLast, UINT uFlags)
 {
+    Connect();
     if (!(CMF_DEFAULTONLY & uFlags))
     {
         InsertMenu(hMenu, indexMenu++, MF_STRING | MF_BYPOSITION, idCmdFirst + IDM_CREATE, TEXT("&Create Desktop"));
@@ -408,13 +412,15 @@ LRESULT CDeskBand::OnPaint(void)
     RECT        rc;
     GetClientRect(m_hWnd, &rc);
 
+    const SIZE dtsz = { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+
     HGDIOBJ    OrigPen = SelectObject(ps.hdc, GetStockObject(WHITE_PEN));
     HGDIOBJ    OrigBrush = SelectObject(ps.hdc, GetStockObject(WHITE_BRUSH));
 
-    GDIPtr<HPEN> hBorderPen((HPEN) GetStockObject(BLACK_PEN));
+    GDIPtr<HPEN> hBorderPen(GetStockPen(BLACK_PEN));
     GDIPtr<HBRUSH> hBorderBrush(GetSysColorBrush(COLOR_WINDOWFRAME));
 
-    GDIPtr<HPEN> hBorderSelectedPen((HPEN) GetStockObject(BLACK_PEN));
+    GDIPtr<HPEN> hBorderSelectedPen(GetStockPen(BLACK_PEN));
     GDIPtr<HBRUSH> hBorderSelectedBrush(GetSysColorBrush(COLOR_WINDOW));
 
     CComPtr<IVirtualDesktop> pCurrentDesktop;
@@ -422,16 +428,61 @@ LRESULT CDeskBand::OnPaint(void)
         ;
 
     LONG w;
-    RECT dtrc = GetFirstDesktopRect(w);
+    RECT dtrc = GetFirstDesktopRect(dtsz, w);
+    const SIZE dtrcsz = GetSize(dtrc);
 
-    CComPtr<IObjectArray> pObjectArray;
-    if (m_pDesktopManagerInternal && SUCCEEDED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
+    CComPtr<IObjectArray> pViewArray;
+    if (m_pApplicationViewCollection && SUCCEEDED(m_pApplicationViewCollection->GetViewsByZOrder(&pViewArray)))
+        ;
+
+    CComPtr<IObjectArray> pDesktopArray;
+    if (m_pDesktopManagerInternal && SUCCEEDED(m_pDesktopManagerInternal->GetDesktops(&pDesktopArray)))
     {
-        for (CComPtr<IVirtualDesktop> pDesktop : ObjectArrayRange<IVirtualDesktop>(pObjectArray))
+        for (CComPtr<IVirtualDesktop> pDesktop : ObjectArrayRange<IVirtualDesktop>(pDesktopArray))
         {
             SelectObject(ps.hdc, pCurrentDesktop == pDesktop ? hBorderSelectedPen : hBorderPen);
             SelectObject(ps.hdc, pCurrentDesktop == pDesktop ? hBorderSelectedBrush : hBorderBrush);
-            Rectangle(ps.hdc, dtrc.left, dtrc.top, dtrc.right, dtrc.bottom);
+            Rectangle(ps.hdc, dtrc);
+
+            if (pViewArray)
+            {
+                int s = SaveDC(ps.hdc);
+                IntersectClipRect(ps.hdc, dtrc.left, dtrc.top, dtrc.right, dtrc.bottom);
+
+                for (CComPtr<IApplicationView> pView : ObjectArrayRangeRev<IApplicationView>(pViewArray))
+                {
+                    BOOL bShowInSwitchers = FALSE;
+                    if (SUCCEEDED(pView->GetShowInSwitchers(&bShowInSwitchers)))
+                    {
+                    }
+
+                    if (!bShowInSwitchers)
+                        continue;
+
+                    BOOL bVisible = FALSE;
+                    if (SUCCEEDED(pDesktop->IsViewVisible(pView, &bVisible)))
+                    {
+                    }
+
+                    if (!bVisible)
+                        continue;
+
+                    HWND hWnd;
+                    if (SUCCEEDED(pView->GetThumbnailWindow(&hWnd)))
+                    {
+                        RECT        wrc;
+                        GetWindowRect(hWnd, &wrc);
+
+                        Multiply(wrc, dtrcsz);
+                        Divide(wrc, dtsz);
+                        OffsetRect(&wrc, dtrc.left, dtrc.top);
+
+                        Rectangle(ps.hdc, wrc);
+                    }
+                }
+
+                RestoreDC(ps.hdc, s);
+            }
 
             OffsetRect(&dtrc, w, 0);
         }
@@ -552,15 +603,23 @@ void CDeskBand::Connect()
         {
             if (!m_pDesktopManagerInternal)
             {
-                if (FAILED(pServiceProvider->QueryService(CLSID_VirtualDesktopManagerInternal, IID_PPV_ARGS(&m_pDesktopManagerInternal))))
+                if (FAILED(pServiceProvider->QueryService(CLSID_VirtualDesktopManagerInternal, &m_pDesktopManagerInternal)))
                     OutputDebugString(L"RADVDDB: Error obtaining CLSID_VirtualDesktopManagerInternal\n");
+            }
+            if (!m_pApplicationViewCollection)
+            {
+                if (FAILED(pServiceProvider->QueryService(__uuidof(m_pApplicationViewCollection), &m_pApplicationViewCollection)))
+                    OutputDebugString(L"RADVDDB: Error obtaining IApplicationViewCollection\n");
             }
             if (!m_pDesktopNotificationService)
             {
-                if (FAILED(pServiceProvider->QueryService(CLSID_IVirtualNotificationService, IID_PPV_ARGS(&m_pDesktopNotificationService))))
+                if (FAILED(pServiceProvider->QueryService(CLSID_IVirtualNotificationService, &m_pDesktopNotificationService)))
                     OutputDebugString(L"RADVDDB: Error obtaining CLSID_IVirtualNotificationService\n");
             }
         }
+
+        if (m_hWnd != NULL)
+            InvalidateRect(m_hWnd, nullptr, TRUE);
     }
 
     if (m_pNotify && m_idVirtualDesktopNotification == 0)
@@ -580,42 +639,42 @@ void CDeskBand::UnregisterNotify(void)
     }
 }
 
-RECT CDeskBand::GetFirstDesktopRect(LONG& w)
+RECT CDeskBand::GetFirstDesktopRect(const SIZE dtsz, LONG& w)
 {
-    CComPtr<IObjectArray> pObjectArray;
-    if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
+    CComPtr<IObjectArray> pDesktopArray;
+    if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetDesktops(&pDesktopArray)))
         ;
 
     UINT count = 1;
-    if (!pObjectArray || FAILED(pObjectArray->GetCount(&count)))
+    if (!pDesktopArray || FAILED(pDesktopArray->GetCount(&count)))
         ;
 
     RECT rc;
     GetClientRect(m_hWnd, &rc);
 
-    const SIZE dtsz = { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
-    const double dtar = (double) dtsz.cx / dtsz.cy;
+    const double dtar = AspectRatio(dtsz);
 
     w = (rc.right - rc.left + 5) / count;
     RECT vdrc(rc);
     vdrc.right = vdrc.left + w - 5;
     InflateRect(&vdrc, 0, -5);
 
-    const LONG vdw = (vdrc.right - vdrc.left);
-    const LONG vdh = (vdrc.bottom - vdrc.top);
-    const LONG vdnh = (LONG) (vdw / dtar + 0.5);
-    vdrc.top = vdrc.top + (vdh - vdnh) / 2;
+    const SIZE vdsz = GetSize(vdrc);
+    const LONG vdnh = (LONG) (vdsz.cx / dtar + 0.5);
+    vdrc.top = vdrc.top + (vdsz.cy - vdnh) / 2;
     vdrc.bottom = vdrc.top + vdnh;
 
-    const double vdar = ((double) vdrc.right - vdrc.left) / ((double) vdrc.bottom - vdrc.top);
+    const double vdar = AspectRatio(GetSize(vdrc));
 
     return vdrc;
 }
 
 CComPtr<IVirtualDesktop> CDeskBand::GetDesktop(POINT pt)
 {
+    const SIZE dtsz = { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+
     LONG w;
-    RECT dtrc = GetFirstDesktopRect(w);
+    RECT dtrc = GetFirstDesktopRect(dtsz, w);
 
     CComPtr<IObjectArray> pObjectArray;
     if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
