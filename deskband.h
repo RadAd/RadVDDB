@@ -88,6 +88,8 @@ private:
     CComPtr<IVirtualDesktopNotification> m_pNotify = nullptr;
     CComPtr<IVirtualDesktop> pCaptureDesktop;
 
+    HWINEVENTHOOK m_hook = NULL;
+
 private:
     void FocusChange(BOOL);
     LRESULT OnKillFocus(void);
@@ -97,6 +99,7 @@ private:
     LRESULT OnPaint(void);
     LRESULT OnLButtonDown(UINT uModKeys, POINT pt);
     LRESULT OnLButtonUp(UINT uModKeys, POINT pt);
+    void OnWinEvent(HWND hWnd, DWORD event);
     BOOL RegisterAndCreateWindow(void);
 
     void Connect();

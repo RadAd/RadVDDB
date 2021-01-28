@@ -13,6 +13,32 @@
 
 #pragma optimize("", off)
 
+HWND g_hWnd = NULL;
+
+#define WM_WINEVENT (WM_USER + 12)
+
+void CALLBACK WinEventProc(
+    HWINEVENTHOOK /*hook*/,
+    DWORD event,
+    HWND hwnd,
+    LONG idObject,
+    LONG idChild,
+    DWORD /*idEventThread*/,
+    DWORD /*time*/)
+{
+    if (idObject == OBJID_WINDOW &&
+        idChild == CHILDID_SELF)
+    {
+        if (event == EVENT_SYSTEM_FOREGROUND
+            || event == EVENT_OBJECT_SHOW
+            || event == EVENT_OBJECT_HIDE
+            || event == EVENT_OBJECT_LOCATIONCHANGE)
+        {
+            PostMessage(g_hWnd, WM_WINEVENT, (WPARAM) hwnd, (LPARAM) event);
+        }
+    }
+}
+
 CDeskBand::CDeskBand(CLSID pClassID)
 {
     m_pClassID = pClassID;
@@ -36,6 +62,13 @@ CDeskBand::CDeskBand(CLSID pClassID)
 CDeskBand::~CDeskBand()
 {
     UnregisterNotify();
+
+    if (m_hook != NULL)
+    {
+        UnhookWinEvent(m_hook);
+        m_hook = NULL;
+        g_hWnd = NULL;
+    }
 
     g_DllRefCount--;
 }
@@ -157,7 +190,7 @@ STDMETHODIMP CDeskBand::SetSite(IUnknown* punkSite)
 
         m_pNotify = new VirtualDesktopNotification(m_hWnd);
         if (!m_pDesktopNotificationService || FAILED(m_pDesktopNotificationService->Register(m_pNotify, &m_idVirtualDesktopNotification)))
-            OutputDebugString(L"RADVDDB: Error regsiter DesktopNotificationService\n");
+            OutputDebugString(L"RADVDDB: Error register DesktopNotificationService\n");
             //return E_FAIL;
 
         //Get and keep the IInputObjectSite pointer.
@@ -394,6 +427,10 @@ LRESULT CALLBACK CDeskBand::WndProc(HWND hWnd, UINT uMessage, WPARAM wParam, LPA
 
     case WM_KILLFOCUS:
         return pThis->OnKillFocus();
+
+    case WM_WINEVENT:
+        pThis->OnWinEvent((HWND) wParam, (DWORD) lParam);
+        return 0;
     }
 
     return DefWindowProc(hWnd, uMessage, wParam, lParam);
@@ -425,7 +462,7 @@ LRESULT CDeskBand::OnPaint(void)
 
     CComPtr<IVirtualDesktop> pCurrentDesktop;
     if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetCurrentDesktop(&pCurrentDesktop)))
-        ;
+        OutputDebugString(L"RADVDDB: Warning GetCurrentDesktop\n");
 
     LONG w;
     RECT dtrc = GetFirstDesktopRect(dtsz, w);
@@ -433,7 +470,7 @@ LRESULT CDeskBand::OnPaint(void)
 
     CComPtr<IObjectArray> pViewArray;
     if (m_pApplicationViewCollection && SUCCEEDED(m_pApplicationViewCollection->GetViewsByZOrder(&pViewArray)))
-        ;
+        OutputDebugString(L"RADVDDB: Warning GetViewsByZOrder\n");
 
     CComPtr<IObjectArray> pDesktopArray;
     if (m_pDesktopManagerInternal && SUCCEEDED(m_pDesktopManagerInternal->GetDesktops(&pDesktopArray)))
@@ -518,6 +555,26 @@ LRESULT CDeskBand::OnLButtonUp(UINT uModKeys, POINT pt)
     }
 
     return 0;
+}
+
+void CDeskBand::OnWinEvent(HWND hWnd, DWORD event)
+{
+    // TODO Check in hWnd visible
+    bool refresh = false;
+
+    CComPtr<IApplicationView> pView;
+    if (m_pApplicationViewCollection && SUCCEEDED(m_pApplicationViewCollection->GetViewForHwnd(hWnd, &pView)))
+    {
+        BOOL bShowInSwitchers = FALSE;
+        if (SUCCEEDED(pView->GetShowInSwitchers(&bShowInSwitchers)))
+        {
+        }
+
+        refresh = bShowInSwitchers != FALSE;
+    }
+
+    if (refresh)
+        InvalidateRect(m_hWnd, nullptr, FALSE);
 }
 
 void CDeskBand::FocusChange(BOOL bFocus)
@@ -618,14 +675,34 @@ void CDeskBand::Connect()
             }
         }
 
+        if (m_hook == NULL && m_hWnd != NULL)
+        {
+            g_hWnd = m_hWnd;
+            const DWORD processId = 0;
+            const DWORD threadId = 0;
+            m_hook = SetWinEventHook(
+                EVENT_OBJECT_SHOW,
+                EVENT_OBJECT_LOCATIONCHANGE,
+                nullptr,
+                WinEventProc,
+                processId,
+                threadId,
+                WINEVENT_OUTOFCONTEXT);
+            if (m_hook == NULL)
+            {
+                OutputDebugString(L"RADVDDB: Error register SetWinEventHook\n");
+                g_hWnd = NULL;
+            }
+        }
+
         if (m_hWnd != NULL)
-            InvalidateRect(m_hWnd, nullptr, TRUE);
+            InvalidateRect(m_hWnd, nullptr, FALSE);
     }
 
     if (m_pNotify && m_idVirtualDesktopNotification == 0)
     {
         if (!m_pDesktopNotificationService || FAILED(m_pDesktopNotificationService->Register(m_pNotify, &m_idVirtualDesktopNotification)))
-            OutputDebugString(L"RADVDDB: Error regsiter DesktopNotificationService\n");
+            OutputDebugString(L"RADVDDB: Error register DesktopNotificationService\n");
     }
 }
 
@@ -643,11 +720,11 @@ RECT CDeskBand::GetFirstDesktopRect(const SIZE dtsz, LONG& w)
 {
     CComPtr<IObjectArray> pDesktopArray;
     if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetDesktops(&pDesktopArray)))
-        ;
+        OutputDebugString(L"RADVDDB: Warning GetDesktops\n");
 
     UINT count = 1;
     if (!pDesktopArray || FAILED(pDesktopArray->GetCount(&count)))
-        ;
+        OutputDebugString(L"RADVDDB: Warning GetCount\n");;
 
     RECT rc;
     GetClientRect(m_hWnd, &rc);
