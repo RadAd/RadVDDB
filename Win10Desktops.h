@@ -177,11 +177,26 @@ IVirtualDesktop : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE IsViewVisible(
-		IApplicationView * pView,
-		int* pfVisible) = 0;
+		_In_ IApplicationView * pView,
+		_Out_ int* pfVisible) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE GetID(
-		GUID* pGuid) = 0;
+		_Out_ GUID* pGuid) = 0;
+};
+
+MIDL_INTERFACE("31EBDE3F-6EC3-4CBD-B9FB-0EF6D09B41F4")
+IVirtualDesktop2: public IUnknown
+{
+public:
+	virtual HRESULT STDMETHODCALLTYPE IsViewVisible(
+		_In_ IApplicationView * pView,
+		_Out_ int* pfVisible) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE GetID(
+		_Out_ GUID* pGuid) = 0;
+
+	virtual HRESULT STDMETHODCALLTYPE GetName(
+		_Out_ HSTRING* pStr) = 0;
 };
 
 enum AdjacentDesktop
@@ -197,42 +212,48 @@ IVirtualDesktopManagerInternal : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE GetCount(
-		UINT * pCount) = 0;
+		_Out_ UINT * pCount) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE MoveViewToDesktop(
-		IApplicationView* pView,
-		IVirtualDesktop* pDesktop) = 0;
+		_In_ IApplicationView* pView,
+		_In_ IVirtualDesktop* pDesktop) = 0;
 
 	// Since build 10240
 	virtual HRESULT STDMETHODCALLTYPE CanViewMoveDesktops(
-		IApplicationView* pView,
-		int* pfCanViewMoveDesktops) = 0;
+		_In_ IApplicationView* pView,
+		_Out_ int* pfCanViewMoveDesktops) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE GetCurrentDesktop(
-		IVirtualDesktop** desktop) = 0;
+		_Out_ IVirtualDesktop** desktop) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE GetDesktops(
-		IObjectArray** ppDesktops) = 0;
+		_Out_ IObjectArray** ppDesktops) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE GetAdjacentDesktop(
-		IVirtualDesktop* pDesktopReference,
-		AdjacentDesktop uDirection,
-		IVirtualDesktop** ppAdjacentDesktop) = 0;
+		_In_ IVirtualDesktop* pDesktopReference,
+		_In_ AdjacentDesktop uDirection,
+		_Out_ IVirtualDesktop** ppAdjacentDesktop) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE SwitchDesktop(
-		IVirtualDesktop* pDesktop) = 0;
+		_In_ IVirtualDesktop* pDesktop) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE CreateDesktopW(
-		IVirtualDesktop** ppNewDesktop) = 0;
+		_Out_ IVirtualDesktop** ppNewDesktop) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE RemoveDesktop(
-		IVirtualDesktop* pRemove,
-		IVirtualDesktop* pFallbackDesktop) = 0;
+		_In_ IVirtualDesktop* pRemove,
+		_In_ IVirtualDesktop* pFallbackDesktop) = 0;
 
 	// Since build 10240
 	virtual HRESULT STDMETHODCALLTYPE FindDesktop(
-		GUID* desktopId,
-		IVirtualDesktop** ppDesktop) = 0;
+		_In_ GUID* desktopId,
+		_Out_ IVirtualDesktop** ppDesktop) = 0;
+
+	// Since build ??
+	virtual HRESULT STDMETHODCALLTYPE Proc13(
+		_In_ IVirtualDesktop* pDesktop,
+		_Out_ IObjectArray** ppDesktops1,
+		_Out_ IObjectArray** ppDesktops2) = 0;
 };
 
 #if 0
@@ -264,26 +285,26 @@ IVirtualDesktopNotification : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE VirtualDesktopCreated(
-		IVirtualDesktop * pDesktop) = 0;
+		_In_ IVirtualDesktop * pDesktop) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE VirtualDesktopDestroyBegin(
-		IVirtualDesktop* pDesktopDestroyed,
-		IVirtualDesktop* pDesktopFallback) = 0;
+		_In_ IVirtualDesktop* pDesktopDestroyed,
+		_In_ IVirtualDesktop* pDesktopFallback) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE VirtualDesktopDestroyFailed(
-		IVirtualDesktop* pDesktopDestroyed,
-		IVirtualDesktop* pDesktopFallback) = 0;
+		_In_ IVirtualDesktop* pDesktopDestroyed,
+		_In_ IVirtualDesktop* pDesktopFallback) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE VirtualDesktopDestroyed(
-		IVirtualDesktop* pDesktopDestroyed,
-		IVirtualDesktop* pDesktopFallback) = 0;
+		_In_ IVirtualDesktop* pDesktopDestroyed,
+		_In_ IVirtualDesktop* pDesktopFallback) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE ViewVirtualDesktopChanged(
-		IApplicationView* pView) = 0;
+		_In_ IApplicationView* pView) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE CurrentVirtualDesktopChanged(
-		IVirtualDesktop* pDesktopOld,
-		IVirtualDesktop* pDesktopNew) = 0;
+		_In_ IVirtualDesktop* pDesktopOld,
+		_In_ IVirtualDesktop* pDesktopNew) = 0;
 
 };
 
@@ -292,9 +313,9 @@ IVirtualDesktopNotificationService : public IUnknown
 {
 public:
 	virtual HRESULT STDMETHODCALLTYPE Register(
-		IVirtualDesktopNotification * pNotification,
-		DWORD * pdwCookie) = 0;
+		_In_ IVirtualDesktopNotification * pNotification,
+		_Out_ DWORD * pdwCookie) = 0;
 
 	virtual HRESULT STDMETHODCALLTYPE Unregister(
-		DWORD dwCookie) = 0;
+		_In_ DWORD dwCookie) = 0;
 };

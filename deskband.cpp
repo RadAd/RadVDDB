@@ -8,6 +8,30 @@
 
 #include <tchar.h>
 #include <windowsx.h>
+#include <winstring.h>
+
+#pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
+// TODO
+// Use top left of virtual screen --- const POINT dtorig = { GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN) };
+
+#include <wrl.h>
+#include <windows.ui.viewmanagement.h>
+
+namespace abi_vm = ABI::Windows::UI::ViewManagement;
+namespace wrl = Microsoft::WRL;
+namespace wf = Windows::Foundation;
+
+COLORREF GetAccentColor()
+{
+    // Error checking has been elided for expository purposes.
+    wrl::ComPtr<abi_vm::IUISettings3> settings;
+    wf::ActivateInstance(wrl::Wrappers::HStringReference(RuntimeClass_Windows_UI_ViewManagement_UISettings).Get(), &settings);
+    ABI::Windows::UI::Color color;
+    settings->GetColorValue(abi_vm::UIColorType::UIColorType_Accent, &color);
+    // color.A, color.R, color.G, and color.B are the color channels.
+    return RGB(color.R, color.G, color.B);
+}
 
 #define IDM_CREATE      0
 
@@ -449,16 +473,21 @@ LRESULT CDeskBand::OnPaint(void)
     RECT        rc;
     GetClientRect(m_hWnd, &rc);
 
-    const SIZE dtsz = { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+    const SIZE dtsz = { GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN) };
 
     HGDIOBJ    OrigPen = SelectObject(ps.hdc, GetStockObject(WHITE_PEN));
     HGDIOBJ    OrigBrush = SelectObject(ps.hdc, GetStockObject(WHITE_BRUSH));
+    HGDIOBJ    OrigFont = SelectObject(ps.hdc, GetStockObject(DEVICE_DEFAULT_FONT));
 
     GDIPtr<HPEN> hBorderPen(GetStockPen(BLACK_PEN));
     GDIPtr<HBRUSH> hBorderBrush(GetSysColorBrush(COLOR_WINDOWFRAME));
 
     GDIPtr<HPEN> hBorderSelectedPen(GetStockPen(BLACK_PEN));
     GDIPtr<HBRUSH> hBorderSelectedBrush(GetSysColorBrush(COLOR_WINDOW));
+
+    GDIPtr<HFONT> hTitleFont(CreateFont(-12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, TEXT("Arial")));
+    SetBkMode(ps.hdc, TRANSPARENT);
 
     CComPtr<IVirtualDesktop> pCurrentDesktop;
     if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetCurrentDesktop(&pCurrentDesktop)))
@@ -518,6 +547,38 @@ LRESULT CDeskBand::OnPaint(void)
                     }
                 }
 
+                CComPtr<IVirtualDesktop2> pDesktop2;
+                if (SUCCEEDED(pDesktop.QueryInterface(&pDesktop2)))
+                {
+                    HSTRING name = NULL;
+                    if (SUCCEEDED(pDesktop2->GetName(&name)))
+                    {
+                        SelectObject(ps.hdc, hTitleFont);
+
+                        UINT32 length = 0;
+                        PCWSTR pName = WindowsGetStringRawBuffer(name, &length);
+
+#if 0
+                        SetBkColor(ps.hdc, RGB(0, 0, 0));
+                        SetTextColor(ps.hdc, RGB(185, 255, 70));
+                        SetTextColor(ps.hdc, GetAccentColor());
+                        DrawText(ps.hdc, pName, length, &dtrc, DT_LEFT | DT_TOP);
+#else
+                        DrawShadowText(
+                            ps.hdc,
+                            pName,
+                            length,
+                            &dtrc,
+                            DT_LEFT | DT_TOP,
+                            RGB(255, 255, 255),
+                            RGB(0, 0, 0),
+                            0,
+                            0
+                        );
+#endif
+                    }
+                }
+
                 RestoreDC(ps.hdc, s);
             }
 
@@ -527,6 +588,7 @@ LRESULT CDeskBand::OnPaint(void)
 
     SelectObject(ps.hdc, OrigPen);
     SelectObject(ps.hdc, OrigBrush);
+    SelectObject(ps.hdc, OrigFont);
 
     EndPaint(m_hWnd, &ps);
 
@@ -748,7 +810,7 @@ RECT CDeskBand::GetFirstDesktopRect(const SIZE dtsz, LONG& w)
 
 CComPtr<IVirtualDesktop> CDeskBand::GetDesktop(POINT pt)
 {
-    const SIZE dtsz = { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+    const SIZE dtsz = { GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN) };
 
     LONG w;
     RECT dtrc = GetFirstDesktopRect(dtsz, w);
