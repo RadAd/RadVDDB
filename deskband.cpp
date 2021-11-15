@@ -479,11 +479,10 @@ LRESULT CDeskBand::OnPaint(void)
     HGDIOBJ    OrigBrush = SelectObject(ps.hdc, GetStockObject(WHITE_BRUSH));
     HGDIOBJ    OrigFont = SelectObject(ps.hdc, GetStockObject(DEVICE_DEFAULT_FONT));
 
-    GDIPtr<HPEN> hBorderPen(GetStockPen(BLACK_PEN));
-    GDIPtr<HBRUSH> hBorderBrush(GetSysColorBrush(COLOR_WINDOWFRAME));
-
-    GDIPtr<HPEN> hBorderSelectedPen(GetStockPen(BLACK_PEN));
-    GDIPtr<HBRUSH> hBorderSelectedBrush(GetSysColorBrush(COLOR_WINDOW));
+    GDIPtr<HPEN> hPen(GetStockPen(BLACK_PEN));
+    GDIPtr<HPEN> hSelectedPen(CreatePen(PS_SOLID, 5, GetAccentColor()));
+    GDIPtr<HBRUSH> hBackgroundBrush(GetSysColorBrush(COLOR_WINDOWFRAME));
+    GDIPtr<HBRUSH> hWindowBrush(GetSysColorBrush(COLOR_WINDOW));
 
     GDIPtr<HFONT> hTitleFont(CreateFont(-12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
         CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, TEXT("Arial")));
@@ -506,12 +505,14 @@ LRESULT CDeskBand::OnPaint(void)
     {
         for (CComPtr<IVirtualDesktop> pDesktop : ObjectArrayRange<IVirtualDesktop>(pDesktopArray))
         {
-            SelectObject(ps.hdc, pCurrentDesktop == pDesktop ? hBorderSelectedPen : hBorderPen);
-            SelectObject(ps.hdc, pCurrentDesktop == pDesktop ? hBorderSelectedBrush : hBorderBrush);
+            SelectObject(ps.hdc, hPen);
+            SelectObject(ps.hdc, hBackgroundBrush);
             Rectangle(ps.hdc, dtrc);
 
             if (pViewArray)
             {
+                SelectObject(ps.hdc, hPen);
+                SelectObject(ps.hdc, hWindowBrush);
                 int s = SaveDC(ps.hdc);
                 IntersectClipRect(ps.hdc, dtrc.left, dtrc.top, dtrc.right, dtrc.bottom);
 
@@ -580,6 +581,13 @@ LRESULT CDeskBand::OnPaint(void)
                 }
 
                 RestoreDC(ps.hdc, s);
+            }
+
+            if (pCurrentDesktop == pDesktop)
+            {
+                SelectObject(ps.hdc, hSelectedPen);
+                MoveToEx(ps.hdc, dtrc.left, dtrc.bottom - 1, nullptr);
+                LineTo(ps.hdc, dtrc.right - 1, dtrc.bottom - 1);
             }
 
             OffsetRect(&dtrc, w, 0);
