@@ -577,6 +577,7 @@ LRESULT CDeskBand::OnPaint(void)
                             0
                         );
 #endif
+                        WindowsDeleteString(name);
                     }
                 }
 
