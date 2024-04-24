@@ -12,7 +12,7 @@ STDMETHODIMP VirtualDesktopNotification::QueryInterface(REFIID riid, void** ppvO
         return E_INVALIDARG;
     *ppvObject = NULL;
 
-    if (riid == IID_IUnknown || riid == IID_IVirtualDesktopNotification)
+    if (riid == IID_IUnknown || riid == Win10::IID_IVirtualDesktopNotification)
     {
         // Increment the reference count and return the pointer.
         *ppvObject = (LPVOID) this;
@@ -37,23 +37,23 @@ STDMETHODIMP_(DWORD) STDMETHODCALLTYPE VirtualDesktopNotification::Release()
     return 0;
 }
 
-STDMETHODIMP VirtualDesktopNotification::VirtualDesktopCreated(IVirtualDesktop* pDesktop)
+STDMETHODIMP VirtualDesktopNotification::VirtualDesktopCreated(Win10::IVirtualDesktop* pDesktop)
 {
     InvalidateRect(_hWnd, nullptr, TRUE);
     return S_OK;
 }
 
-STDMETHODIMP VirtualDesktopNotification::VirtualDesktopDestroyBegin(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback)
+STDMETHODIMP VirtualDesktopNotification::VirtualDesktopDestroyBegin(Win10::IVirtualDesktop* pDesktopDestroyed, Win10::IVirtualDesktop* pDesktopFallback)
 {
     return S_OK;
 }
 
-STDMETHODIMP VirtualDesktopNotification::VirtualDesktopDestroyFailed(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback)
+STDMETHODIMP VirtualDesktopNotification::VirtualDesktopDestroyFailed(Win10::IVirtualDesktop* pDesktopDestroyed, Win10::IVirtualDesktop* pDesktopFallback)
 {
     return S_OK;
 }
 
-STDMETHODIMP VirtualDesktopNotification::VirtualDesktopDestroyed(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback)
+STDMETHODIMP VirtualDesktopNotification::VirtualDesktopDestroyed(Win10::IVirtualDesktop* pDesktopDestroyed, Win10::IVirtualDesktop* pDesktopFallback)
 {
     InvalidateRect(_hWnd, nullptr, TRUE);
     return S_OK;
@@ -65,7 +65,7 @@ STDMETHODIMP VirtualDesktopNotification::ViewVirtualDesktopChanged(IApplicationV
     return S_OK;
 }
 
-STDMETHODIMP VirtualDesktopNotification::CurrentVirtualDesktopChanged(IVirtualDesktop* pDesktopOld, IVirtualDesktop* pDesktopNew)
+STDMETHODIMP VirtualDesktopNotification::CurrentVirtualDesktopChanged(Win10::IVirtualDesktop* pDesktopOld, Win10::IVirtualDesktop* pDesktopNew)
 {
     //viewCollection->RefreshCollection();
     InvalidateRect(_hWnd, nullptr, TRUE);

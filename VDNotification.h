@@ -2,7 +2,7 @@
 
 #include "Win10Desktops.h"
 
-class VirtualDesktopNotification : public IVirtualDesktopNotification
+class VirtualDesktopNotification : public Win10::IVirtualDesktopNotification
 {
 private:
     HWND _hWnd;
@@ -14,10 +14,10 @@ public:
     STDMETHODIMP_(DWORD) AddRef() override;
     STDMETHODIMP_(DWORD) STDMETHODCALLTYPE Release() override;
 
-    STDMETHODIMP VirtualDesktopCreated(IVirtualDesktop* pDesktop) override;
-    STDMETHODIMP VirtualDesktopDestroyBegin(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback) override;
-    STDMETHODIMP VirtualDesktopDestroyFailed(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback) override;
-    STDMETHODIMP VirtualDesktopDestroyed(IVirtualDesktop* pDesktopDestroyed, IVirtualDesktop* pDesktopFallback) override;
+    STDMETHODIMP VirtualDesktopCreated(Win10::IVirtualDesktop* pDesktop) override;
+    STDMETHODIMP VirtualDesktopDestroyBegin(Win10::IVirtualDesktop* pDesktopDestroyed, Win10::IVirtualDesktop* pDesktopFallback) override;
+    STDMETHODIMP VirtualDesktopDestroyFailed(Win10::IVirtualDesktop* pDesktopDestroyed, Win10::IVirtualDesktop* pDesktopFallback) override;
+    STDMETHODIMP VirtualDesktopDestroyed(Win10::IVirtualDesktop* pDesktopDestroyed, Win10::IVirtualDesktop* pDesktopFallback) override;
     STDMETHODIMP ViewVirtualDesktopChanged(IApplicationView* pView) override;
-    STDMETHODIMP CurrentVirtualDesktopChanged(IVirtualDesktop* pDesktopOld, IVirtualDesktop* pDesktopNew) override;
+    STDMETHODIMP CurrentVirtualDesktopChanged(Win10::IVirtualDesktop* pDesktopOld, Win10::IVirtualDesktop* pDesktopNew) override;
 };

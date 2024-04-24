@@ -9,11 +9,14 @@
 
 #define DB_CLASS_NAME (TEXT("RadVDDBClass"))
 
-interface IVirtualDesktopManagerInternal;
 interface IApplicationViewCollection;
-interface IVirtualDesktopNotificationService;
-interface IVirtualDesktopNotification;
-interface IVirtualDesktop;
+
+namespace Win10 {
+    interface IVirtualDesktopManagerInternal;
+    interface IVirtualDesktopNotificationService;
+    interface IVirtualDesktopNotification;
+    interface IVirtualDesktop;
+};
 
 /**************************************************************************
 
@@ -81,12 +84,12 @@ private:
     DWORD m_dwBandID;
     CComPtr<IInputObjectSite> m_pSite;
 
-    CComPtr<IVirtualDesktopManagerInternal> m_pDesktopManagerInternal;
+    CComPtr<Win10::IVirtualDesktopManagerInternal> m_pDesktopManagerInternal;
     CComPtr<IApplicationViewCollection> m_pApplicationViewCollection;
-    CComPtr<IVirtualDesktopNotificationService> m_pDesktopNotificationService;
+    CComPtr<Win10::IVirtualDesktopNotificationService> m_pDesktopNotificationService;
     DWORD m_idVirtualDesktopNotification = 0;
-    CComPtr<IVirtualDesktopNotification> m_pNotify = nullptr;
-    CComPtr<IVirtualDesktop> pCaptureDesktop;
+    CComPtr<Win10::IVirtualDesktopNotification> m_pNotify = nullptr;
+    CComPtr<Win10::IVirtualDesktop> pCaptureDesktop;
 
     HWINEVENTHOOK m_hook = NULL;
 
@@ -105,7 +108,7 @@ private:
     void Connect();
     void UnregisterNotify(void);
     RECT GetFirstDesktopRect(const SIZE dtsz, LONG& w);
-    CComPtr<IVirtualDesktop> GetDesktop(POINT pt);
+    CComPtr<Win10::IVirtualDesktop> GetDesktop(POINT pt);
 };
 
 #endif   //DESKBAND_H

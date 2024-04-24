@@ -367,7 +367,7 @@ STDMETHODIMP CDeskBand::InvokeCommand(LPCMINVOKECOMMANDINFO lpcmi)
     {
     case IDM_CREATE:
     {
-        CComPtr<IVirtualDesktop> pNewDesktop;
+        CComPtr<Win10::IVirtualDesktop> pNewDesktop;
         if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->CreateDesktopW(&pNewDesktop)))
             MessageBox(m_hWnd, L"Error creating virtual desktop", L"Error", MB_ICONERROR | MB_OK);
     }
@@ -488,7 +488,7 @@ LRESULT CDeskBand::OnPaint(void)
         CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, TEXT("Arial")));
     SetBkMode(ps.hdc, TRANSPARENT);
 
-    CComPtr<IVirtualDesktop> pCurrentDesktop;
+    CComPtr<Win10::IVirtualDesktop> pCurrentDesktop;
     if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetCurrentDesktop(&pCurrentDesktop)))
         OutputDebugString(L"RADVDDB: Warning GetCurrentDesktop\n");
 
@@ -503,7 +503,7 @@ LRESULT CDeskBand::OnPaint(void)
     CComPtr<IObjectArray> pDesktopArray;
     if (m_pDesktopManagerInternal && SUCCEEDED(m_pDesktopManagerInternal->GetDesktops(&pDesktopArray)))
     {
-        for (CComPtr<IVirtualDesktop> pDesktop : ObjectArrayRange<IVirtualDesktop>(pDesktopArray))
+        for (CComPtr<Win10::IVirtualDesktop> pDesktop : ObjectArrayRange<Win10::IVirtualDesktop>(pDesktopArray))
         {
             SelectObject(ps.hdc, hPen);
             SelectObject(ps.hdc, hBackgroundBrush);
@@ -548,7 +548,7 @@ LRESULT CDeskBand::OnPaint(void)
                     }
                 }
 
-                CComPtr<IVirtualDesktop2> pDesktop2;
+                CComPtr<Win10::IVirtualDesktop2> pDesktop2;
                 if (SUCCEEDED(pDesktop.QueryInterface(&pDesktop2)))
                 {
                     HSTRING name = NULL;
@@ -617,7 +617,7 @@ LRESULT CDeskBand::OnLButtonUp(UINT uModKeys, POINT pt)
     ReleaseCapture();
     // TODO Check mouse didn't move too far
 
-    CComPtr<IVirtualDesktop> pDesktop = GetDesktop(pt);
+    CComPtr<Win10::IVirtualDesktop> pDesktop = GetDesktop(pt);
 
     if (pDesktop && pCaptureDesktop == pDesktop)
     {
@@ -741,8 +741,8 @@ void CDeskBand::Connect()
             }
             if (!m_pDesktopNotificationService)
             {
-                if (FAILED(pServiceProvider->QueryService(CLSID_IVirtualNotificationService, &m_pDesktopNotificationService)))
-                    OutputDebugString(L"RADVDDB: Error obtaining CLSID_IVirtualNotificationService\n");
+                if (FAILED(pServiceProvider->QueryService(CLSID_VirtualNotificationService, &m_pDesktopNotificationService)))
+                    OutputDebugString(L"RADVDDB: Error obtaining CLSID_VirtualNotificationService\n");
             }
         }
 
@@ -817,7 +817,7 @@ RECT CDeskBand::GetFirstDesktopRect(const SIZE dtsz, LONG& w)
     return vdrc;
 }
 
-CComPtr<IVirtualDesktop> CDeskBand::GetDesktop(POINT pt)
+CComPtr<Win10::IVirtualDesktop> CDeskBand::GetDesktop(POINT pt)
 {
     const SIZE dtsz = { GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN) };
 
@@ -827,7 +827,7 @@ CComPtr<IVirtualDesktop> CDeskBand::GetDesktop(POINT pt)
     CComPtr<IObjectArray> pObjectArray;
     if (!m_pDesktopManagerInternal || FAILED(m_pDesktopManagerInternal->GetDesktops(&pObjectArray)))
         return nullptr;
-    for (CComPtr<IVirtualDesktop> pDesktop : ObjectArrayRange<IVirtualDesktop>(pObjectArray))
+    for (CComPtr<Win10::IVirtualDesktop> pDesktop : ObjectArrayRange<Win10::IVirtualDesktop>(pObjectArray))
     {
         if (PtInRect(&dtrc, pt))
             return pDesktop;
